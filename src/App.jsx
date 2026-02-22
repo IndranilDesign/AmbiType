@@ -1,0 +1,664 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import LandingScreen from './components/LandingScreen';
+import SummaryScreen from './components/SummaryScreen';
+import TypingScreen from './components/TypingScreen';
+import { createTextBuffer, extendTextBuffer } from './lib/textGenerator';
+import {
+  ROLLING_WINDOW_MS,
+  WPM_UI_UPDATE_MS,
+  calculateAccuracy,
+  calculateSessionAverageWpm,
+  getRollingWpmDisplay,
+  isWordBoundary,
+  trimTypingEvents
+} from './lib/stats';
+
+const SCREEN = {
+  LANDING: 'landing',
+  TYPING: 'typing',
+  SUMMARY: 'summary'
+};
+
+const MUTE_STORAGE_KEY = 'ambitype-muted';
+const INITIAL_TEXT_LENGTH = 3600;
+const BUFFER_AHEAD_CHARS = 1700;
+const BUFFER_EXTENSION_STEP = 1200;
+
+const TRACK_PATHS = [
+  '/Tracks/ES_The Sun Might Rise in the West - Jakob Ahlbom.mp3',
+  '/Tracks/ES_Lost in Thought - Amaranth Cove.mp3',
+  '/Tracks/ES_Days of Ducklings - Rand Aldo.mp3',
+  '/Tracks/ES_Alleviated Mind - Hanna Lindgren.mp3',
+  '/Tracks/ES_The Calm Outside - Chill Cole.mp3',
+  '/Tracks/ES_Zema - Martin Landh.mp3',
+  '/Tracks/ES_Underscore - Hampus Naeselius.mp3',
+  "/Tracks/ES_Furthest I've Been from Home - Rebecca Mardal.mp3",
+  '/Tracks/ES_Sydkoster - Elm Lake.mp3'
+].map((track) => encodeURI(track));
+
+const EMPTY_SUMMARY = {
+  averagePace: 0,
+  wordsTyped: 0,
+  accuracy: 100,
+  timeTyped: 0
+};
+
+function shuffleArray(items) {
+  const next = [...items];
+
+  for (let index = next.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(Math.random() * (index + 1));
+    const temp = next[index];
+    next[index] = next[randomIndex];
+    next[randomIndex] = temp;
+  }
+
+  return next;
+}
+
+function getStoredMutePreference() {
+  try {
+    return localStorage.getItem(MUTE_STORAGE_KEY) === 'true';
+  } catch (error) {
+    return false;
+  }
+}
+
+function App() {
+  const [screen, setScreen] = useState(SCREEN.LANDING);
+  const [sessionRunId, setSessionRunId] = useState(0);
+  const [isInfoOpen, setIsInfoOpen] = useState(false);
+  const [isMuted, setIsMuted] = useState(getStoredMutePreference);
+  const [audioBlocked, setAudioBlocked] = useState(false);
+  const [playlist, setPlaylist] = useState(() => shuffleArray(TRACK_PATHS));
+  const [trackIndex, setTrackIndex] = useState(0);
+
+  const [targetText, setTargetText] = useState(() =>
+    createTextBuffer(INITIAL_TEXT_LENGTH)
+  );
+  const [cursorIndex, setCursorIndex] = useState(0);
+  const [typedResults, setTypedResults] = useState([]);
+
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [liveWpm, setLiveWpm] = useState(null);
+  const [summaryStats, setSummaryStats] = useState(EMPTY_SUMMARY);
+
+  const audioRef = useRef(null);
+  const audioFadeFrameRef = useRef(null);
+  const infoPopoverRef = useRef(null);
+
+  const targetTextRef = useRef(targetText);
+  const cursorRef = useRef(cursorIndex);
+  const elapsedRef = useRef(0);
+  const liveWpmRef = useRef(liveWpm);
+
+  const statsRef = useRef({
+    totalTypedChars: 0,
+    correctTypedChars: 0,
+    totalWordsTyped: 0,
+    firstTypedAt: 0,
+    lastTypedAt: 0
+  });
+
+  const currentWordRef = useRef({ hasChars: false, hasMistake: false });
+  const typingEventsRef = useRef([]);
+
+  const effectiveMuted = isMuted || audioBlocked;
+
+  useEffect(() => {
+    targetTextRef.current = targetText;
+  }, [targetText]);
+
+  useEffect(() => {
+    cursorRef.current = cursorIndex;
+  }, [cursorIndex]);
+
+  useEffect(() => {
+    elapsedRef.current = elapsedSeconds;
+  }, [elapsedSeconds]);
+
+  useEffect(() => {
+    liveWpmRef.current = liveWpm;
+  }, [liveWpm]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(MUTE_STORAGE_KEY, String(isMuted));
+    } catch (error) {
+      // Ignore storage failures in restricted contexts.
+    }
+  }, [isMuted]);
+
+  useEffect(() => {
+    if (!isInfoOpen) {
+      return;
+    }
+
+    function handleOutsideClick(event) {
+      if (!infoPopoverRef.current?.contains(event.target)) {
+        setIsInfoOpen(false);
+      }
+    }
+
+    window.addEventListener('mousedown', handleOutsideClick);
+    return () => {
+      window.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [isInfoOpen]);
+
+  const stopAudioFade = useCallback(() => {
+    if (audioFadeFrameRef.current) {
+      window.cancelAnimationFrame(audioFadeFrameRef.current);
+      audioFadeFrameRef.current = null;
+    }
+  }, []);
+
+  const fadeAudioVolume = useCallback(
+    (targetVolume, durationMs = 320, options = {}) => {
+      const { pauseWhenSilent = false, onComplete } = options;
+      const audio = audioRef.current;
+
+      if (!audio) {
+        return;
+      }
+
+      stopAudioFade();
+
+      const fromVolume = Number.isFinite(audio.volume) ? audio.volume : 1;
+      const toVolume = Math.max(0, Math.min(1, targetVolume));
+
+      if (Math.abs(fromVolume - toVolume) < 0.01) {
+        audio.volume = toVolume;
+
+        if (toVolume <= 0.01 && pauseWhenSilent) {
+          audio.pause();
+        }
+
+        if (typeof onComplete === 'function') {
+          onComplete();
+        }
+
+        return;
+      }
+
+      const startedAt = performance.now();
+
+      const animate = (now) => {
+        const progress = Math.min(1, (now - startedAt) / durationMs);
+        const easedProgress = 1 - (1 - progress) * (1 - progress);
+        audio.volume = fromVolume + (toVolume - fromVolume) * easedProgress;
+
+        if (progress < 1) {
+          audioFadeFrameRef.current = window.requestAnimationFrame(animate);
+          return;
+        }
+
+        audio.volume = toVolume;
+        audioFadeFrameRef.current = null;
+
+        if (toVolume <= 0.01 && pauseWhenSilent) {
+          audio.pause();
+        }
+
+        if (typeof onComplete === 'function') {
+          onComplete();
+        }
+      };
+
+      audioFadeFrameRef.current = window.requestAnimationFrame(animate);
+    },
+    [stopAudioFade]
+  );
+
+  const attemptAudioPlay = useCallback(
+    async (withFade = false) => {
+      const audio = audioRef.current;
+
+      if (!audio) {
+        return false;
+      }
+
+      if (isMuted) {
+        return false;
+      }
+
+      if (withFade) {
+        audio.volume = Math.min(audio.volume || 1, 0.05);
+      } else {
+        audio.volume = 1;
+      }
+
+      audio.muted = false;
+
+      try {
+        await audio.play();
+        setAudioBlocked(false);
+
+        if (withFade) {
+          fadeAudioVolume(1, 380);
+        }
+
+        return true;
+      } catch (error) {
+        setAudioBlocked(true);
+        return false;
+      }
+    },
+    [fadeAudioVolume, isMuted]
+  );
+
+  const resetSessionModel = useCallback(() => {
+    const initialText = createTextBuffer(INITIAL_TEXT_LENGTH);
+
+    targetTextRef.current = initialText;
+    cursorRef.current = 0;
+    elapsedRef.current = 0;
+
+    setTargetText(initialText);
+    setCursorIndex(0);
+    setTypedResults([]);
+    setElapsedSeconds(0);
+    setLiveWpm(null);
+    liveWpmRef.current = null;
+
+    statsRef.current = {
+      totalTypedChars: 0,
+      correctTypedChars: 0,
+      totalWordsTyped: 0,
+      firstTypedAt: 0,
+      lastTypedAt: 0
+    };
+
+    currentWordRef.current = { hasChars: false, hasMistake: false };
+    typingEventsRef.current = [];
+  }, []);
+
+  const prepareNextTracklist = useCallback(() => {
+    const shuffledPlaylist = shuffleArray(TRACK_PATHS);
+    setPlaylist(shuffledPlaylist);
+    setTrackIndex(0);
+
+    const audio = audioRef.current;
+    if (audio && shuffledPlaylist.length) {
+      audio.src = shuffledPlaylist[0];
+      audio.currentTime = 0;
+      audio.load();
+    }
+  }, []);
+
+  const startSession = useCallback(() => {
+    resetSessionModel();
+    prepareNextTracklist();
+    setAudioBlocked(false);
+    setScreen(SCREEN.TYPING);
+    setSessionRunId((previous) => previous + 1);
+
+    if (!isMuted) {
+      void attemptAudioPlay(true);
+    }
+  }, [attemptAudioPlay, isMuted, prepareNextTracklist, resetSessionModel]);
+
+  const finishSession = useCallback(() => {
+    const accuracy = calculateAccuracy(
+      statsRef.current.correctTypedChars,
+      statsRef.current.totalTypedChars
+    );
+
+    const averagePace = calculateSessionAverageWpm(
+      statsRef.current.correctTypedChars,
+      elapsedRef.current * 1000
+    );
+
+    const carriedWords = currentWordRef.current.hasChars ? 1 : 0;
+
+    setSummaryStats({
+      averagePace,
+      wordsTyped: statsRef.current.totalWordsTyped + carriedWords,
+      accuracy,
+      timeTyped: elapsedRef.current
+    });
+
+    setScreen(SCREEN.SUMMARY);
+
+    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.currentTime = 0;
+    }
+  }, []);
+
+  const toggleMute = useCallback(() => {
+    setIsMuted((previousMuteState) => {
+      const nextMuteState = !previousMuteState;
+      const audio = audioRef.current;
+
+      if (nextMuteState) {
+        if (audio) {
+          audio.muted = false;
+
+          fadeAudioVolume(0, 260, {
+            pauseWhenSilent: true,
+            onComplete: () => {
+              const currentAudio = audioRef.current;
+              if (currentAudio) {
+                currentAudio.muted = true;
+              }
+            }
+          });
+        }
+      } else {
+        if (audio) {
+          audio.muted = false;
+          audio.volume = Math.min(audio.volume || 1, 0.05);
+        }
+        setAudioBlocked(false);
+        if (screen === SCREEN.TYPING) {
+          void attemptAudioPlay(true);
+        }
+      }
+
+      return nextMuteState;
+    });
+  }, [attemptAudioPlay, fadeAudioVolume, screen]);
+
+  const handleTypingInteraction = useCallback(() => {
+    const audio = audioRef.current;
+
+    if (!audio || isMuted) {
+      return;
+    }
+
+    if (audio.paused || audioBlocked) {
+      void attemptAudioPlay(true);
+    }
+  }, [attemptAudioPlay, audioBlocked, isMuted]);
+
+  const handleStepBack = useCallback(() => {
+    const currentCursor = cursorRef.current;
+
+    if (currentCursor <= 0) {
+      return;
+    }
+
+    const previousIndex = currentCursor - 1;
+    cursorRef.current = previousIndex;
+    setCursorIndex(previousIndex);
+
+    setTypedResults((previous) => {
+      if (previous[previousIndex] === undefined) {
+        return previous;
+      }
+
+      const next = previous.slice();
+      next[previousIndex] = undefined;
+      return next;
+    });
+  }, []);
+
+  const handleTypeCharacter = useCallback((typedCharacter) => {
+    const now = Date.now();
+    const currentCursor = cursorRef.current;
+
+    let nextText = targetTextRef.current;
+    if (nextText.length <= currentCursor + BUFFER_AHEAD_CHARS) {
+      nextText = extendTextBuffer(nextText, currentCursor + BUFFER_AHEAD_CHARS + BUFFER_EXTENSION_STEP);
+      targetTextRef.current = nextText;
+      setTargetText(nextText);
+    }
+
+    const expectedCharacter = nextText[currentCursor] ?? ' ';
+    const isCorrect = typedCharacter === expectedCharacter;
+
+    setTypedResults((previous) => {
+      const next = previous.slice();
+      next[currentCursor] = isCorrect;
+      return next;
+    });
+
+    const nextCursor = currentCursor + 1;
+    cursorRef.current = nextCursor;
+    setCursorIndex(nextCursor);
+
+    statsRef.current.totalTypedChars += 1;
+
+    if (isCorrect) {
+      statsRef.current.correctTypedChars += 1;
+    }
+
+    if (!statsRef.current.firstTypedAt) {
+      statsRef.current.firstTypedAt = now;
+    }
+
+    statsRef.current.lastTypedAt = now;
+    typingEventsRef.current.push({
+      t: now,
+      chars: 1,
+      correctChars: isCorrect ? 1 : 0
+    });
+    trimTypingEvents(typingEventsRef.current, now, ROLLING_WINDOW_MS * 3);
+
+    const activeWord = currentWordRef.current;
+
+    if (isWordBoundary(typedCharacter)) {
+      if (!isCorrect && activeWord.hasChars) {
+        activeWord.hasMistake = true;
+      }
+
+      if (activeWord.hasChars) {
+        statsRef.current.totalWordsTyped += 1;
+      }
+
+      currentWordRef.current = { hasChars: false, hasMistake: false };
+    } else {
+      activeWord.hasChars = true;
+
+      if (!isCorrect) {
+        activeWord.hasMistake = true;
+      }
+    }
+
+  }, []);
+
+  useEffect(() => {
+    if (screen !== SCREEN.TYPING) {
+      return undefined;
+    }
+
+    const startedAt = Date.now();
+    const timerId = window.setInterval(() => {
+      const nextElapsedSeconds = Math.floor((Date.now() - startedAt) / 1000);
+      elapsedRef.current = nextElapsedSeconds;
+      setElapsedSeconds(nextElapsedSeconds);
+    }, 250);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [screen, sessionRunId]);
+
+  useEffect(() => {
+    if (screen !== SCREEN.TYPING) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      const now = Date.now();
+      trimTypingEvents(
+        typingEventsRef.current,
+        now,
+        ROLLING_WINDOW_MS * 3
+      );
+
+      const { displayWpm } = getRollingWpmDisplay({
+        events: typingEventsRef.current,
+        now,
+        firstTypedAt: statsRef.current.firstTypedAt,
+        totalTypedChars: statsRef.current.totalTypedChars,
+        lastTypedAt: statsRef.current.lastTypedAt,
+        previousDisplay: liveWpmRef.current
+      });
+
+      const nextDisplay = displayWpm ?? null;
+      setLiveWpm((previousDisplay) =>
+        previousDisplay === nextDisplay ? previousDisplay : nextDisplay
+      );
+    }, WPM_UI_UPDATE_MS);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [screen, sessionRunId]);
+
+  useEffect(() => {
+    if (screen !== SCREEN.LANDING) {
+      return undefined;
+    }
+
+    function handleLandingEnter(event) {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        startSession();
+      }
+    }
+
+    window.addEventListener('keydown', handleLandingEnter);
+
+    return () => {
+      window.removeEventListener('keydown', handleLandingEnter);
+    };
+  }, [screen, startSession]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+
+    if (!audio || !playlist.length) {
+      return;
+    }
+
+    const nextTrack = playlist[trackIndex];
+
+    if (audio.src !== `${window.location.origin}${nextTrack}`) {
+      audio.src = nextTrack;
+      audio.load();
+    }
+
+    if (screen === SCREEN.TYPING && !effectiveMuted) {
+      void attemptAudioPlay(true);
+    }
+  }, [attemptAudioPlay, effectiveMuted, playlist, screen, trackIndex]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+
+    if (!audio) {
+      return;
+    }
+
+    if (screen !== SCREEN.TYPING) {
+      stopAudioFade();
+      audio.pause();
+      audio.muted = isMuted;
+      audio.volume = 1;
+      return;
+    }
+
+    if (isMuted) {
+      audio.muted = true;
+      return;
+    }
+
+    audio.muted = false;
+
+    if (audioBlocked) {
+      return;
+    }
+
+    if (audio.paused) {
+      void attemptAudioPlay(true);
+    } else {
+      fadeAudioVolume(1, 360);
+    }
+  }, [attemptAudioPlay, audioBlocked, fadeAudioVolume, isMuted, screen, stopAudioFade]);
+
+  useEffect(
+    () => () => {
+      stopAudioFade();
+    },
+    [stopAudioFade]
+  );
+
+  function handleTrackEnded() {
+    setTrackIndex((previousIndex) => {
+      if (!playlist.length) {
+        return 0;
+      }
+
+      return (previousIndex + 1) % playlist.length;
+    });
+  }
+
+  return (
+    <div className="app-shell">
+      <audio ref={audioRef} preload="none" onEnded={handleTrackEnded} />
+
+      <div className="info-popover-wrap" ref={infoPopoverRef}>
+        <button
+          type="button"
+          className="info-button"
+          onClick={() => setIsInfoOpen((previousState) => !previousState)}
+          aria-label="Project information"
+          aria-expanded={isInfoOpen}
+        >
+          <img src="/icons/Info.svg" alt="" aria-hidden="true" />
+        </button>
+
+        {isInfoOpen && (
+          <aside className="info-popover" role="dialog" aria-label="About AmbiType">
+            <p>
+              AmbiType is a side project created by Indranil for calm, focused typing practice.
+            </p>
+            <p>
+              <a
+                href="https://www.linkedin.com/in/indranil-chaudhuri-09b288194/"
+                target="_blank"
+                rel="noreferrer"
+              >
+                LinkedIn
+              </a>{' '}
+              · <a href="mailto:indranil2k@gmail.com">indranil2k@gmail.com</a>
+            </p>
+          </aside>
+        )}
+      </div>
+
+      <main
+        className={`app-card ${screen === SCREEN.TYPING ? 'typing-card' : 'default-card'} screen-${screen}`}
+      >
+        {screen === SCREEN.LANDING && <LandingScreen onStartSession={startSession} />}
+
+        {screen === SCREEN.TYPING && (
+          <TypingScreen
+            key={sessionRunId}
+            targetText={targetText}
+            cursorIndex={cursorIndex}
+            typedResults={typedResults}
+            elapsedSeconds={elapsedSeconds}
+            liveWpm={liveWpm}
+            isMuted={effectiveMuted}
+            onToggleMute={toggleMute}
+            onFinishSession={finishSession}
+            onTypeCharacter={handleTypeCharacter}
+            onStepBack={handleStepBack}
+            onTypingInteraction={handleTypingInteraction}
+          />
+        )}
+
+        {screen === SCREEN.SUMMARY && (
+          <SummaryScreen summaryStats={summaryStats} onRestartSession={startSession} />
+        )}
+      </main>
+    </div>
+  );
+}
+
+export default App;
