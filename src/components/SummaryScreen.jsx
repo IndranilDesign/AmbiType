@@ -1,10 +1,38 @@
+import { useEffect, useRef, useState } from 'react';
 import formatTime from '../lib/formatTime';
 import StatCard from './StatCard';
 
 function SummaryScreen({ summaryStats, onRestartSession }) {
+  const [isScrolling, setIsScrolling] = useState(false);
+  const scrollIdleTimeoutRef = useRef(null);
+
+  useEffect(
+    () => () => {
+      if (scrollIdleTimeoutRef.current) {
+        window.clearTimeout(scrollIdleTimeoutRef.current);
+      }
+    },
+    []
+  );
+
+  function handleSummaryScroll() {
+    setIsScrolling(true);
+
+    if (scrollIdleTimeoutRef.current) {
+      window.clearTimeout(scrollIdleTimeoutRef.current);
+    }
+
+    scrollIdleTimeoutRef.current = window.setTimeout(() => {
+      setIsScrolling(false);
+    }, 700);
+  }
+
   return (
     <section className="screen-content summary-screen">
-      <div className="summary-scroll-area">
+      <div
+        className={`summary-scroll-area${isScrolling ? ' scrolling' : ''}`}
+        onScroll={handleSummaryScroll}
+      >
         <div className="summary-main">
           <h2 className="primary-heading">Nice work!</h2>
           <p className="body-copy summary-subtext">You spent some time typing in a calm, focused space.</p>

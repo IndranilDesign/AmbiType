@@ -20,6 +20,7 @@ const SCREEN = {
 };
 
 const MUTE_STORAGE_KEY = 'ambitype-muted';
+const SHORT_SESSION_SKIP_SUMMARY_SECONDS = 10;
 const INITIAL_TEXT_LENGTH = 3600;
 const BUFFER_AHEAD_CHARS = 1700;
 const BUFFER_EXTENSION_STEP = 1200;
@@ -299,6 +300,20 @@ function App() {
   }, [attemptAudioPlay, isMuted, prepareNextTracklist, resetSessionModel]);
 
   const finishSession = useCallback(() => {
+    const sessionSeconds = elapsedRef.current;
+
+    if (sessionSeconds < SHORT_SESSION_SKIP_SUMMARY_SECONDS) {
+      setScreen(SCREEN.LANDING);
+
+      const audio = audioRef.current;
+      if (audio) {
+        audio.pause();
+        audio.currentTime = 0;
+      }
+
+      return;
+    }
+
     const accuracy = calculateAccuracy(
       statsRef.current.correctTypedChars,
       statsRef.current.totalTypedChars
@@ -315,7 +330,7 @@ function App() {
       averagePace,
       wordsTyped: statsRef.current.totalWordsTyped + carriedWords,
       accuracy,
-      timeTyped: elapsedRef.current
+      timeTyped: sessionSeconds
     });
 
     setScreen(SCREEN.SUMMARY);

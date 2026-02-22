@@ -531,6 +531,30 @@ button {
   padding-right: 4px;
   padding-bottom: 80px;
   box-sizing: border-box;
+  scrollbar-width: none;
+  scrollbar-color: transparent transparent;
+}
+
+.summary-scroll-area.scrolling {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(22, 39, 45, 0.26) transparent;
+}
+
+.summary-scroll-area::-webkit-scrollbar {
+  width: 8px;
+}
+
+.summary-scroll-area::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.summary-scroll-area::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 999px;
+}
+
+.summary-scroll-area.scrolling::-webkit-scrollbar-thumb {
+  background: rgba(22, 39, 45, 0.24);
 }
 
 .summary-subtext {
