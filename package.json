@@ -6,9 +6,14 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "corpus:build": "node scripts/build_corpus_from_epubs.mjs",
+    "corpus:extract": "npm run corpus:build"
   },
   "dependencies": {
+    "fast-xml-parser": "^4.5.3",
+    "jszip": "^3.10.1",
+    "node-html-parser": "^7.0.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

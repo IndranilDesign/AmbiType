@@ -270,6 +270,7 @@ button {
   font-size: 32px;
   line-height: 1.72;
   letter-spacing: 0.16em;
+  word-spacing: -0.16em;
   white-space: pre-wrap;
   word-break: break-word;
   overflow-wrap: anywhere;

@@ -15,12 +15,27 @@ function TypingScreen({
   onTypingInteraction
 }) {
   const CARET_ANCHOR_RATIO = 0.33;
+  const RENDER_BEFORE_CHARS = 1400;
+  const RENDER_AFTER_CHARS = 2600;
   const [scrollOffset, setScrollOffset] = useState(0);
   const typingViewportRef = useRef(null);
   const typingTargetRef = useRef(null);
   const currentCharacterRef = useRef(null);
 
-  const visibleText = useMemo(() => targetText, [targetText]);
+  const { visibleText, windowStart } = useMemo(() => {
+    if (!targetText) {
+      return { visibleText: '', windowStart: 0 };
+    }
+
+    const safeCursor = Math.max(0, Math.min(cursorIndex, targetText.length));
+    const start = Math.max(0, safeCursor - RENDER_BEFORE_CHARS);
+    const end = Math.min(targetText.length, safeCursor + RENDER_AFTER_CHARS);
+
+    return {
+      visibleText: targetText.slice(start, end),
+      windowStart: start
+    };
+  }, [cursorIndex, targetText]);
 
   const visibleCharacters = useMemo(() => visibleText.split(''), [visibleText]);
 
@@ -132,7 +147,7 @@ function TypingScreen({
             aria-hidden="true"
           >
             {visibleCharacters.map((character, index) => {
-              const absoluteIndex = index;
+              const absoluteIndex = windowStart + index;
               let className = 'glyph glyph-pending';
 
               if (absoluteIndex < cursorIndex) {

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import LandingScreen from './components/LandingScreen';
 import SummaryScreen from './components/SummaryScreen';
 import TypingScreen from './components/TypingScreen';
-import { createTextBuffer, extendTextBuffer } from './lib/textGenerator';
+import { createCorpusSession } from './lib/corpusLoader';
 import {
   ROLLING_WINDOW_MS,
   WPM_UI_UPDATE_MS,
@@ -21,9 +21,11 @@ const SCREEN = {
 
 const MUTE_STORAGE_KEY = 'ambitype-muted';
 const SHORT_SESSION_SKIP_SUMMARY_SECONDS = 10;
-const INITIAL_TEXT_LENGTH = 3600;
+const INITIAL_TEXT_LENGTH = 24000;
 const BUFFER_AHEAD_CHARS = 1700;
-const BUFFER_EXTENSION_STEP = 1200;
+const BUFFER_EXTENSION_STEP = 4000;
+const FALLBACK_CORPUS_NOTICE =
+  'Corpus unavailable. Run npm run corpus:build to generate local typing text files.';
 
 const TRACK_PATHS = [
   '/Tracks/ES_The Sun Might Rise in the West - Jakob Ahlbom.mp3',
@@ -65,6 +67,16 @@ function getStoredMutePreference() {
   }
 }
 
+function createFallbackText(minLength = INITIAL_TEXT_LENGTH) {
+  let text = `${FALLBACK_CORPUS_NOTICE} `;
+
+  while (text.length < minLength) {
+    text += `${FALLBACK_CORPUS_NOTICE} `;
+  }
+
+  return text;
+}
+
 function App() {
   const [screen, setScreen] = useState(SCREEN.LANDING);
   const [sessionRunId, setSessionRunId] = useState(0);
@@ -75,10 +87,9 @@ function App() {
   const [trackIndex, setTrackIndex] = useState(0);
 
   const [targetText, setTargetText] = useState(() =>
-    createTextBuffer(INITIAL_TEXT_LENGTH)
+    createFallbackText(INITIAL_TEXT_LENGTH)
   );
   const [cursorIndex, setCursorIndex] = useState(0);
-  const [typedResults, setTypedResults] = useState([]);
 
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [liveWpm, setLiveWpm] = useState(null);
@@ -89,9 +100,12 @@ function App() {
   const infoPopoverRef = useRef(null);
 
   const targetTextRef = useRef(targetText);
+  const typedResultsRef = useRef([]);
   const cursorRef = useRef(cursorIndex);
   const elapsedRef = useRef(0);
   const liveWpmRef = useRef(liveWpm);
+  const corpusStreamRef = useRef(null);
+  const sessionLoadIdRef = useRef(0);
 
   const statsRef = useRef({
     totalTypedChars: 0,
@@ -248,16 +262,19 @@ function App() {
     [fadeAudioVolume, isMuted]
   );
 
-  const resetSessionModel = useCallback(() => {
-    const initialText = createTextBuffer(INITIAL_TEXT_LENGTH);
+  const resetSessionModel = useCallback((initialText) => {
+    const safeInitialText =
+      typeof initialText === 'string' && initialText.length > 0
+        ? initialText
+        : createFallbackText(INITIAL_TEXT_LENGTH);
 
-    targetTextRef.current = initialText;
+    targetTextRef.current = safeInitialText;
     cursorRef.current = 0;
     elapsedRef.current = 0;
 
-    setTargetText(initialText);
+    setTargetText(safeInitialText);
     setCursorIndex(0);
-    setTypedResults([]);
+    typedResultsRef.current = [];
     setElapsedSeconds(0);
     setLiveWpm(null);
     liveWpmRef.current = null;
@@ -287,8 +304,37 @@ function App() {
     }
   }, []);
 
-  const startSession = useCallback(() => {
-    resetSessionModel();
+  const startSession = useCallback(async () => {
+    const currentLoadId = sessionLoadIdRef.current + 1;
+    sessionLoadIdRef.current = currentLoadId;
+
+    let initialSessionText = createFallbackText(INITIAL_TEXT_LENGTH);
+
+    try {
+      const corpusSession = await createCorpusSession({
+        initialChars: INITIAL_TEXT_LENGTH
+      });
+
+      if (sessionLoadIdRef.current !== currentLoadId) {
+        return;
+      }
+
+      corpusStreamRef.current = corpusSession.stream;
+      initialSessionText = corpusSession.initialText;
+    } catch (error) {
+      if (sessionLoadIdRef.current !== currentLoadId) {
+        return;
+      }
+
+      corpusStreamRef.current = null;
+      console.error('Failed to load corpus text:', error);
+    }
+
+    if (sessionLoadIdRef.current !== currentLoadId) {
+      return;
+    }
+
+    resetSessionModel(initialSessionText);
     prepareNextTracklist();
     setAudioBlocked(false);
     setScreen(SCREEN.TYPING);
@@ -399,15 +445,9 @@ function App() {
     cursorRef.current = previousIndex;
     setCursorIndex(previousIndex);
 
-    setTypedResults((previous) => {
-      if (previous[previousIndex] === undefined) {
-        return previous;
-      }
-
-      const next = previous.slice();
-      next[previousIndex] = undefined;
-      return next;
-    });
+    if (typedResultsRef.current[previousIndex] !== undefined) {
+      typedResultsRef.current[previousIndex] = undefined;
+    }
   }, []);
 
   const handleTypeCharacter = useCallback((typedCharacter) => {
@@ -416,7 +456,13 @@ function App() {
 
     let nextText = targetTextRef.current;
     if (nextText.length <= currentCursor + BUFFER_AHEAD_CHARS) {
-      nextText = extendTextBuffer(nextText, currentCursor + BUFFER_AHEAD_CHARS + BUFFER_EXTENSION_STEP);
+      const minimumLength =
+        currentCursor + BUFFER_AHEAD_CHARS + BUFFER_EXTENSION_STEP;
+      if (corpusStreamRef.current) {
+        nextText = corpusStreamRef.current.ensureLength(nextText, minimumLength);
+      } else {
+        nextText = createFallbackText(minimumLength);
+      }
       targetTextRef.current = nextText;
       setTargetText(nextText);
     }
@@ -424,11 +470,7 @@ function App() {
     const expectedCharacter = nextText[currentCursor] ?? ' ';
     const isCorrect = typedCharacter === expectedCharacter;
 
-    setTypedResults((previous) => {
-      const next = previous.slice();
-      next[currentCursor] = isCorrect;
-      return next;
-    });
+    typedResultsRef.current[currentCursor] = isCorrect;
 
     const nextCursor = currentCursor + 1;
     cursorRef.current = nextCursor;
@@ -656,7 +698,7 @@ function App() {
             key={sessionRunId}
             targetText={targetText}
             cursorIndex={cursorIndex}
-            typedResults={typedResults}
+            typedResults={typedResultsRef.current}
             elapsedSeconds={elapsedSeconds}
             liveWpm={liveWpm}
             isMuted={effectiveMuted}
