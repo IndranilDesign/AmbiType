@@ -12,6 +12,9 @@ const OUTPUT_INDEX_PATH = path.join(process.cwd(), 'public', 'corpus', 'index.js
 const MIN_PARAGRAPH_CHARS = 30;
 const ZERO_WIDTH_REGEX = /[\u200B-\u200D\u2060\uFEFF]/gu;
 const UNICODE_SPACES_REGEX = /[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]/gu;
+const SMART_DOUBLE_QUOTES_REGEX = /[\u201C\u201D]/gu;
+const SMART_SINGLE_QUOTES_REGEX = /[\u2018\u2019]/gu;
+const SMART_DASHES_REGEX = /[\u2013\u2014\u2212]/gu;
 
 const xmlParser = new XMLParser({
   ignoreAttributes: false,
@@ -55,6 +58,9 @@ function normalizeParagraph(text) {
   return String(text || '')
     .replace(ZERO_WIDTH_REGEX, '')
     .replace(UNICODE_SPACES_REGEX, ' ')
+    .replace(SMART_DOUBLE_QUOTES_REGEX, '"')
+    .replace(SMART_SINGLE_QUOTES_REGEX, "'")
+    .replace(SMART_DASHES_REGEX, '-')
     .replace(/\s+/g, ' ')
     .trim();
 }

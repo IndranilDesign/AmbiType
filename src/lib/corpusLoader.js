@@ -4,6 +4,9 @@ const DEFAULT_APPEND_CHUNK_CHARS = 4000;
 const MIN_TAIL_GUARD_CHARS = 12000;
 const ZERO_WIDTH_REGEX = /[\u200B-\u200D\u2060\uFEFF]/gu;
 const UNICODE_SPACES_REGEX = /[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]/gu;
+const SMART_DOUBLE_QUOTES_REGEX = /[\u201C\u201D]/gu;
+const SMART_SINGLE_QUOTES_REGEX = /[\u2018\u2019]/gu;
+const SMART_DASHES_REGEX = /[\u2013\u2014\u2212]/gu;
 
 let corpusIndexPromise = null;
 const textCache = new Map();
@@ -21,10 +24,12 @@ function normalizeBookText(rawText) {
     .replace(/\r\n/g, '\n')
     .replace(ZERO_WIDTH_REGEX, '')
     .replace(UNICODE_SPACES_REGEX, ' ')
+    .replace(SMART_DOUBLE_QUOTES_REGEX, '"')
+    .replace(SMART_SINGLE_QUOTES_REGEX, "'")
+    .replace(SMART_DASHES_REGEX, '-')
+    // Flatten all line breaks so typing flow stays continuous.
+    .replace(/\s*\n+\s*/g, ' ')
     .replace(/[ \t]+/g, ' ')
-    .replace(/\n[ \t]+/g, '\n')
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
 
@@ -131,8 +136,8 @@ class CorpusSessionStream {
         // End reached: wrap to a fresh random offset in the same book for endless flow.
         this.cursor = pickRandomStartOffset(this.bookText);
 
-        if (chunk && !chunk.endsWith('\n\n')) {
-          chunk += '\n\n';
+        if (chunk && !/\s$/.test(chunk)) {
+          chunk += ' ';
         }
       }
 
