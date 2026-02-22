@@ -67,26 +67,90 @@ button {
   position: absolute;
   top: 68px;
   right: 0;
-  width: min(84vw, 340px);
-  background: rgba(14, 27, 37, 0.95);
+  width: min(84vw, 320px);
+  background: linear-gradient(135deg, #0f2a33 0%, #102f36 100%);
   color: rgba(255, 255, 255, 0.95);
-  border-radius: 16px;
-  padding: 14px 16px;
+  border-radius: 22px;
+  padding: 16px;
   font-size: 14px;
   line-height: 1.55;
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.25);
 }
 
-.info-popover p {
+.info-popover-copy {
   margin: 0;
+  font-size: 14px;
+  line-height: 1.58;
 }
 
-.info-popover p + p {
-  margin-top: 10px;
+.info-popover-actions {
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.info-popover a {
-  color: #d0e5ff;
+.info-action-button {
+  flex: 1 1 0;
+  height: 40px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 14px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: background 160ms ease;
+}
+
+.info-action-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.info-action-button img {
+  width: 16px;
+  height: 16px;
+}
+
+.copy-email-button {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.copy-state {
+  position: absolute;
+  inset: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+
+.copy-default {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.copy-success {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+.copy-email-button.copied .copy-default {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+.copy-email-button.copied .copy-success {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .app-card {
@@ -292,8 +356,6 @@ button {
 
 .glyph-current {
   color: #2f57c9;
-  border-bottom: 3px solid rgba(47, 87, 201, 0.85);
-  border-radius: 2px;
 }
 
 .glyph-pending {
@@ -324,6 +386,20 @@ button {
 
 .typing-top-fade-overlay.active {
   opacity: 1;
+}
+
+.typing-caret {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(47, 87, 201, 0.85);
+  pointer-events: none;
+  transform: translate(0, 0);
+  opacity: 0;
+  transition: transform 140ms ease-out, width 140ms ease-out, opacity 120ms ease;
+  z-index: 2;
 }
 
 .control-bar-wrap {
@@ -382,6 +458,7 @@ button {
 }
 
 .wpm-value {
+  margin-left: 2px;
   font-size: 18px;
   font-weight: 600;
   color: #ffffff;
@@ -389,6 +466,7 @@ button {
 }
 
 .wpm-label {
+  margin-left: -2px;
   font-size: 16px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.6);
@@ -398,7 +476,7 @@ button {
   height: 48px;
   border: none;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
+  background: #3e474a;
   color: #ffffff;
   padding: 0 16px;
   display: inline-flex;
@@ -412,11 +490,17 @@ button {
 }
 
 .control-action:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: #4a5457;
 }
 
 .music-toggle {
   padding-left: 4px;
+  padding-right: 16px;
+  gap: 12px;
+}
+
+.music-toggle .shortcut-pill + span {
+  margin-left: 0;
 }
 
 .music-icon-circle {

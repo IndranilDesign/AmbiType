@@ -21,6 +21,7 @@ function TypingScreen({
   const typingViewportRef = useRef(null);
   const typingTargetRef = useRef(null);
   const currentCharacterRef = useRef(null);
+  const caretRef = useRef(null);
 
   const { visibleText, windowStart } = useMemo(() => {
     if (!targetText) {
@@ -75,13 +76,24 @@ function TypingScreen({
   useLayoutEffect(() => {
     const viewport = typingViewportRef.current;
     const currentCharacter = currentCharacterRef.current;
+    const caret = caretRef.current;
 
-    if (!viewport || !currentCharacter) {
+    if (!viewport || !currentCharacter || !caret) {
+      if (caret) {
+        caret.style.opacity = '0';
+      }
       return;
     }
 
     const viewportAnchor = viewport.clientHeight * CARET_ANCHOR_RATIO;
     const nextOffset = Math.max(0, currentCharacter.offsetTop - viewportAnchor);
+    const textFlow = currentCharacter.parentElement;
+    const flowLeft = textFlow?.offsetLeft || 0;
+    const flowTop = textFlow?.offsetTop || 0;
+    const caretX = flowLeft + currentCharacter.offsetLeft;
+    const caretY =
+      flowTop + currentCharacter.offsetTop - nextOffset + currentCharacter.offsetHeight;
+    const caretWidth = Math.max(10, currentCharacter.offsetWidth || 12);
 
     setScrollOffset((previousOffset) => {
       if (Math.abs(previousOffset - nextOffset) < 1) {
@@ -90,6 +102,10 @@ function TypingScreen({
 
       return nextOffset;
     });
+
+    caret.style.width = `${Math.round(caretWidth)}px`;
+    caret.style.transform = `translate(${Math.round(caretX)}px, ${Math.round(caretY)}px)`;
+    caret.style.opacity = '1';
   }, [cursorIndex, visibleText]);
 
   function handleKeyDown(event) {
@@ -169,6 +185,8 @@ function TypingScreen({
               );
             })}
           </p>
+
+          <span className="typing-caret" ref={caretRef} aria-hidden="true" />
 
           <div
             className={`typing-top-fade-overlay${scrollOffset > 2 ? ' active' : ''}`}

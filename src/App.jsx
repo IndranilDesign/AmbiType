@@ -24,6 +24,8 @@ const SHORT_SESSION_SKIP_SUMMARY_SECONDS = 10;
 const INITIAL_TEXT_LENGTH = 24000;
 const BUFFER_AHEAD_CHARS = 1700;
 const BUFFER_EXTENSION_STEP = 4000;
+const EMAIL_ADDRESS = 'indranil2k@gmail.com';
+const LINKEDIN_URL = 'https://www.linkedin.com/in/indranil-chaudhuri-09b288194/';
 const FALLBACK_CORPUS_NOTICE =
   'Corpus unavailable. Run npm run corpus:build to generate local typing text files.';
 
@@ -81,6 +83,7 @@ function App() {
   const [screen, setScreen] = useState(SCREEN.LANDING);
   const [sessionRunId, setSessionRunId] = useState(0);
   const [isInfoOpen, setIsInfoOpen] = useState(false);
+  const [isEmailCopied, setIsEmailCopied] = useState(false);
   const [isMuted, setIsMuted] = useState(getStoredMutePreference);
   const [audioBlocked, setAudioBlocked] = useState(false);
   const [playlist, setPlaylist] = useState(() => shuffleArray(TRACK_PATHS));
@@ -98,6 +101,7 @@ function App() {
   const audioRef = useRef(null);
   const audioFadeFrameRef = useRef(null);
   const infoPopoverRef = useRef(null);
+  const copiedResetTimerRef = useRef(null);
 
   const targetTextRef = useRef(targetText);
   const typedResultsRef = useRef([]);
@@ -160,6 +164,15 @@ function App() {
       window.removeEventListener('mousedown', handleOutsideClick);
     };
   }, [isInfoOpen]);
+
+  useEffect(
+    () => () => {
+      if (copiedResetTimerRef.current) {
+        window.clearTimeout(copiedResetTimerRef.current);
+      }
+    },
+    []
+  );
 
   const stopAudioFade = useCallback(() => {
     if (audioFadeFrameRef.current) {
@@ -654,6 +667,36 @@ function App() {
     });
   }
 
+  function handleOpenLinkedIn() {
+    window.open(LINKEDIN_URL, '_blank', 'noopener,noreferrer');
+  }
+
+  async function handleCopyEmail() {
+    try {
+      await navigator.clipboard.writeText(EMAIL_ADDRESS);
+    } catch (error) {
+      const fallbackInput = document.createElement('textarea');
+      fallbackInput.value = EMAIL_ADDRESS;
+      fallbackInput.setAttribute('readonly', '');
+      fallbackInput.style.position = 'fixed';
+      fallbackInput.style.opacity = '0';
+      document.body.appendChild(fallbackInput);
+      fallbackInput.select();
+      document.execCommand('copy');
+      document.body.removeChild(fallbackInput);
+    }
+
+    setIsEmailCopied(true);
+
+    if (copiedResetTimerRef.current) {
+      window.clearTimeout(copiedResetTimerRef.current);
+    }
+
+    copiedResetTimerRef.current = window.setTimeout(() => {
+      setIsEmailCopied(false);
+    }, 3000);
+  }
+
   return (
     <div className="app-shell">
       <audio ref={audioRef} preload="none" onEnded={handleTrackEnded} />
@@ -671,19 +714,37 @@ function App() {
 
         {isInfoOpen && (
           <aside className="info-popover" role="dialog" aria-label="About AmbiType">
-            <p>
-              AmbiType is a side project created by Indranil for calm, focused typing practice.
+            <p className="info-popover-copy">
+              Hey! I&apos;m Indranil, a product designer. I built AmbiType because I wanted a calm,
+              endless typing space that actually felt nice to use. So, after a bit of designing and
+              {' '}✨AI✨ magic later, it somehow came together in just two weekends.
+              <br />
+              If you find bugs, have thoughts, or just want to say hi, DM me on LinkedIn or shoot me
+              a mail 😊
             </p>
-            <p>
-              <a
-                href="https://www.linkedin.com/in/indranil-chaudhuri-09b288194/"
-                target="_blank"
-                rel="noreferrer"
+
+            <div className="info-popover-actions">
+              <button type="button" className="info-action-button" onClick={handleOpenLinkedIn}>
+                <img src="/icons/LinkedIn.svg" alt="" aria-hidden="true" />
+                <span>LinkedIn</span>
+              </button>
+
+              <button
+                type="button"
+                className={`info-action-button copy-email-button${isEmailCopied ? ' copied' : ''}`}
+                onClick={handleCopyEmail}
+                aria-label={isEmailCopied ? 'Copied' : 'Copy email'}
               >
-                LinkedIn
-              </a>{' '}
-              · <a href="mailto:indranil2k@gmail.com">indranil2k@gmail.com</a>
-            </p>
+                <span className="copy-state copy-default" aria-hidden={isEmailCopied}>
+                  <img src="/icons/Copy.svg" alt="" aria-hidden="true" />
+                  <span>Copy email</span>
+                </span>
+                <span className="copy-state copy-success" aria-hidden={!isEmailCopied}>
+                  <img src="/icons/Check.svg" alt="" aria-hidden="true" />
+                  <span>Copied</span>
+                </span>
+              </button>
+            </div>
           </aside>
         )}
       </div>

@@ -24,7 +24,7 @@ function ControlBar({ elapsedSeconds, liveWpm, isMuted, onToggleMute, onFinishSe
           <img src={isMuted ? '/icons/Muted.svg' : '/icons/Sound_on.svg'} alt="" />
         </span>
         <ShortcutPill keys={['Ctrl', 'M']} />
-        <span>Music toggle</span>
+        <span>Music</span>
       </button>
 
       <button type="button" className="control-action" onClick={onFinishSession}>
