@@ -725,12 +725,12 @@ function App() {
           aria-hidden={!isInfoOpen}
         >
           <p className="info-popover-copy">
-            Hey! I&apos;m Indranil, a product designer. I built AmbiType because I wanted a calm,
-            endless typing space that actually felt nice to use. So, after a bit of designing and
-            {' '}✨AI✨ magic later, it somehow came together in just two weekends.
+            Hey! I&apos;m Indranil, a product designer. I decided to build AmbiType because I wanted a
+            calm, endless typing space that felt nice to use. After a few late-night work sessions and
+            a concerning amount of coffee, it was finally done!
             <br />
-            If you find bugs, have thoughts, or just want to say hi, DM me on LinkedIn or shoot me
-            a mail 😊
+            If you find any bugs, have thoughts, or just want to say hi, DM me on LinkedIn or shoot
+            me an email 😊
           </p>
 
           <div className="info-popover-actions">
