@@ -255,6 +255,8 @@ button {
 
 .landing-screen {
   position: relative;
+  opacity: 0;
+  animation: typing-reveal 220ms ease 320ms forwards;
 }
 
 .landing-content-frame {
