@@ -65,7 +65,7 @@ button {
 
 .info-popover {
   position: absolute;
-  top: 68px;
+  top: 60px;
   right: 0;
   width: min(84vw, 320px);
   background: linear-gradient(135deg, #0f2a33 0%, #102f36 100%);
