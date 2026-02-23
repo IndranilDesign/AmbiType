@@ -30,6 +30,12 @@ const FALLBACK_CORPUS_NOTICE =
   'Corpus unavailable. Run npm run corpus:build to generate local typing text files.';
 
 const TRACK_PATHS = [
+  '/Tracks/ES_Atomic Chant - Joseph Beg.mp3',
+  '/Tracks/ES_Holding on to Hope - Megan Wofford.mp3',
+  '/Tracks/ES_Imagine Sleep - Hanna Lindgren.mp3',
+  '/Tracks/ES_Sitting on the Moon - Rebecca Mardal.mp3',
+  '/Tracks/ES_Snow Lantern - Syntropy.mp3',
+  '/Tracks/ES_Tranquillity Coast - Rebecca Mardal.mp3',
   '/Tracks/ES_The Sun Might Rise in the West - Jakob Ahlbom.mp3',
   '/Tracks/ES_Lost in Thought - Amaranth Cove.mp3',
   '/Tracks/ES_Days of Ducklings - Rand Aldo.mp3',
@@ -712,41 +718,44 @@ function App() {
           <img src="/icons/Info.svg" alt="" aria-hidden="true" />
         </button>
 
-        {isInfoOpen && (
-          <aside className="info-popover" role="dialog" aria-label="About AmbiType">
-            <p className="info-popover-copy">
-              Hey! I&apos;m Indranil, a product designer. I built AmbiType because I wanted a calm,
-              endless typing space that actually felt nice to use. So, after a bit of designing and
-              {' '}✨AI✨ magic later, it somehow came together in just two weekends.
-              <br />
-              If you find bugs, have thoughts, or just want to say hi, DM me on LinkedIn or shoot me
-              a mail 😊
-            </p>
+        <aside
+          className={`info-popover${isInfoOpen ? ' open' : ''}`}
+          role="dialog"
+          aria-label="About AmbiType"
+          aria-hidden={!isInfoOpen}
+        >
+          <p className="info-popover-copy">
+            Hey! I&apos;m Indranil, a product designer. I built AmbiType because I wanted a calm,
+            endless typing space that actually felt nice to use. So, after a bit of designing and
+            {' '}✨AI✨ magic later, it somehow came together in just two weekends.
+            <br />
+            If you find bugs, have thoughts, or just want to say hi, DM me on LinkedIn or shoot me
+            a mail 😊
+          </p>
 
-            <div className="info-popover-actions">
-              <button type="button" className="info-action-button" onClick={handleOpenLinkedIn}>
-                <img src="/icons/LinkedIn.svg" alt="" aria-hidden="true" />
-                <span>LinkedIn</span>
-              </button>
+          <div className="info-popover-actions">
+            <button type="button" className="info-action-button" onClick={handleOpenLinkedIn}>
+              <img src="/icons/LinkedIn.svg" alt="" aria-hidden="true" />
+              <span>LinkedIn</span>
+            </button>
 
-              <button
-                type="button"
-                className={`info-action-button copy-email-button${isEmailCopied ? ' copied' : ''}`}
-                onClick={handleCopyEmail}
-                aria-label={isEmailCopied ? 'Copied' : 'Copy email'}
-              >
-                <span className="copy-state copy-default" aria-hidden={isEmailCopied}>
-                  <img src="/icons/Copy.svg" alt="" aria-hidden="true" />
-                  <span>Copy email</span>
-                </span>
-                <span className="copy-state copy-success" aria-hidden={!isEmailCopied}>
-                  <img src="/icons/Check.svg" alt="" aria-hidden="true" />
-                  <span>Copied</span>
-                </span>
-              </button>
-            </div>
-          </aside>
-        )}
+            <button
+              type="button"
+              className={`info-action-button copy-email-button${isEmailCopied ? ' copied' : ''}`}
+              onClick={handleCopyEmail}
+              aria-label={isEmailCopied ? 'Copied' : 'Copy email'}
+            >
+              <span className="copy-state copy-default" aria-hidden={isEmailCopied}>
+                <img src="/icons/Copy.svg" alt="" aria-hidden="true" />
+                <span>Copy email</span>
+              </span>
+              <span className="copy-state copy-success" aria-hidden={!isEmailCopied}>
+                <img src="/icons/Check.svg" alt="" aria-hidden="true" />
+                <span>Copied</span>
+              </span>
+            </button>
+          </div>
+        </aside>
       </div>
 
       <main
@@ -775,6 +784,11 @@ function App() {
           <SummaryScreen summaryStats={summaryStats} onRestartSession={startSession} />
         )}
       </main>
+
+      <section className="mobile-unavailable" aria-label="Mobile availability notice">
+        <h1>AmbiType is not available on mobile yet.</h1>
+        <p>I&apos;m still working on it, please view on desktop for now :)</p>
+      </section>
     </div>
   );
 }
