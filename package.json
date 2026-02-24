@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "corpus:build": "node scripts/build_corpus_from_epubs.mjs",
-    "corpus:extract": "npm run corpus:build"
+    "corpus:extract": "npm run corpus:build",
+    "ship": "node scripts/ship.mjs"
   },
   "dependencies": {
     "fast-xml-parser": "^4.5.3",
