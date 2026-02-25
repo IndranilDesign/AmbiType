@@ -1,4 +1,4 @@
-function LandingScreen({ onStartSession }) {
+function LandingScreen({ onStartSession, isPreparing }) {
   return (
     <section className="screen-content landing-screen">
       <div className="landing-content-frame">
@@ -19,9 +19,15 @@ function LandingScreen({ onStartSession }) {
             Music will start when you start session
           </p>
 
-          <button type="button" className="primary-cta" onClick={onStartSession}>
+          <button
+            type="button"
+            className="primary-cta"
+            onClick={onStartSession}
+            disabled={isPreparing}
+            aria-busy={isPreparing}
+          >
             <img src="/icons/Enter.svg" alt="" aria-hidden="true" className="cta-icon" />
-            <span className="cta-label">Start session</span>
+            <span className="cta-label">{isPreparing ? 'Preparing...' : 'Start session'}</span>
           </button>
         </footer>
       </div>

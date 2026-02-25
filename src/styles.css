@@ -313,6 +313,16 @@ button {
   filter: brightness(1.04);
 }
 
+.primary-cta:disabled {
+  cursor: wait;
+  opacity: 0.92;
+  filter: none;
+}
+
+.primary-cta:disabled:hover {
+  filter: none;
+}
+
 .cta-icon {
   width: 24px;
   height: 24px;

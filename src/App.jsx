@@ -2,7 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import LandingScreen from './components/LandingScreen';
 import SummaryScreen from './components/SummaryScreen';
 import TypingScreen from './components/TypingScreen';
-import { createCorpusSession } from './lib/corpusLoader';
+import {
+  consumePreloadedCorpusSession,
+  preloadCorpusSession
+} from './lib/corpusLoader';
 import {
   ROLLING_WINDOW_MS,
   WPM_UI_UPDATE_MS,
@@ -103,6 +106,7 @@ function App() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [liveWpm, setLiveWpm] = useState(null);
   const [summaryStats, setSummaryStats] = useState(EMPTY_SUMMARY);
+  const [isStartPreparing, setIsStartPreparing] = useState(false);
 
   const audioRef = useRef(null);
   const audioFadeFrameRef = useRef(null);
@@ -116,6 +120,7 @@ function App() {
   const liveWpmRef = useRef(liveWpm);
   const corpusStreamRef = useRef(null);
   const sessionLoadIdRef = useRef(0);
+  const sessionStartInFlightRef = useRef(false);
 
   const statsRef = useRef({
     totalTypedChars: 0,
@@ -324,43 +329,57 @@ function App() {
   }, []);
 
   const startSession = useCallback(async () => {
+    if (sessionStartInFlightRef.current) {
+      return;
+    }
+
+    sessionStartInFlightRef.current = true;
+    setIsStartPreparing(true);
+
     const currentLoadId = sessionLoadIdRef.current + 1;
     sessionLoadIdRef.current = currentLoadId;
 
     let initialSessionText = createFallbackText(INITIAL_TEXT_LENGTH);
+    let nextCorpusStream = null;
 
     try {
-      const corpusSession = await createCorpusSession({
-        initialChars: INITIAL_TEXT_LENGTH
-      });
+      try {
+        const corpusSession = await consumePreloadedCorpusSession({
+          initialChars: INITIAL_TEXT_LENGTH
+        });
+
+        if (sessionLoadIdRef.current !== currentLoadId) {
+          return;
+        }
+
+        nextCorpusStream = corpusSession.stream;
+        initialSessionText = corpusSession.initialText;
+      } catch (error) {
+        if (sessionLoadIdRef.current !== currentLoadId) {
+          return;
+        }
+
+        nextCorpusStream = null;
+        console.error('Failed to load corpus text:', error);
+      }
 
       if (sessionLoadIdRef.current !== currentLoadId) {
         return;
       }
 
-      corpusStreamRef.current = corpusSession.stream;
-      initialSessionText = corpusSession.initialText;
-    } catch (error) {
-      if (sessionLoadIdRef.current !== currentLoadId) {
-        return;
+      corpusStreamRef.current = nextCorpusStream;
+      resetSessionModel(initialSessionText);
+      prepareNextTracklist();
+      setAudioBlocked(false);
+      setScreen(SCREEN.TYPING);
+      setSessionRunId((previous) => previous + 1);
+
+      if (!isMuted) {
+        void attemptAudioPlay(true);
       }
-
-      corpusStreamRef.current = null;
-      console.error('Failed to load corpus text:', error);
-    }
-
-    if (sessionLoadIdRef.current !== currentLoadId) {
-      return;
-    }
-
-    resetSessionModel(initialSessionText);
-    prepareNextTracklist();
-    setAudioBlocked(false);
-    setScreen(SCREEN.TYPING);
-    setSessionRunId((previous) => previous + 1);
-
-    if (!isMuted) {
-      void attemptAudioPlay(true);
+    } finally {
+      sessionStartInFlightRef.current = false;
+      setIsStartPreparing(false);
     }
   }, [attemptAudioPlay, isMuted, prepareNextTracklist, resetSessionModel]);
 
@@ -605,6 +624,22 @@ function App() {
   }, [screen, startSession]);
 
   useEffect(() => {
+    if (screen !== SCREEN.LANDING) {
+      return undefined;
+    }
+
+    const preloadTimerId = window.setTimeout(() => {
+      void preloadCorpusSession({
+        initialChars: INITIAL_TEXT_LENGTH
+      });
+    }, 80);
+
+    return () => {
+      window.clearTimeout(preloadTimerId);
+    };
+  }, [screen]);
+
+  useEffect(() => {
     const audio = audioRef.current;
 
     if (!audio || !playlist.length) {
@@ -761,7 +796,9 @@ function App() {
       <main
         className={`app-card ${screen === SCREEN.TYPING ? 'typing-card' : 'default-card'} screen-${screen}`}
       >
-        {screen === SCREEN.LANDING && <LandingScreen onStartSession={startSession} />}
+        {screen === SCREEN.LANDING && (
+          <LandingScreen onStartSession={startSession} isPreparing={isStartPreparing} />
+        )}
 
         {screen === SCREEN.TYPING && (
           <TypingScreen

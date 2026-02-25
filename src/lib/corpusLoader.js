@@ -1,15 +1,13 @@
 const CORPUS_INDEX_PATH = '/corpus/index.json';
+const CORPUS_BOOK_PATH_REGEX = /^\/corpus\/books\/[a-z0-9-]+\.txt$/;
 const DEFAULT_INITIAL_BUFFER_CHARS = 24000;
 const DEFAULT_APPEND_CHUNK_CHARS = 4000;
 const MIN_TAIL_GUARD_CHARS = 12000;
-const ZERO_WIDTH_REGEX = /[\u200B-\u200D\u2060\uFEFF]/gu;
-const UNICODE_SPACES_REGEX = /[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]/gu;
-const SMART_DOUBLE_QUOTES_REGEX = /[\u201C\u201D]/gu;
-const SMART_SINGLE_QUOTES_REGEX = /[\u2018\u2019]/gu;
-const SMART_DASHES_REGEX = /[\u2013\u2014\u2212]/gu;
 
 let corpusIndexPromise = null;
 const textCache = new Map();
+let preloadedSessionPromise = null;
+let preloadedSessionChars = DEFAULT_INITIAL_BUFFER_CHARS;
 
 function randomInt(maxExclusive) {
   if (maxExclusive <= 0) {
@@ -17,20 +15,6 @@ function randomInt(maxExclusive) {
   }
 
   return Math.floor(Math.random() * maxExclusive);
-}
-
-function normalizeBookText(rawText) {
-  return String(rawText || '')
-    .replace(/\r\n/g, '\n')
-    .replace(ZERO_WIDTH_REGEX, '')
-    .replace(UNICODE_SPACES_REGEX, ' ')
-    .replace(SMART_DOUBLE_QUOTES_REGEX, '"')
-    .replace(SMART_SINGLE_QUOTES_REGEX, "'")
-    .replace(SMART_DASHES_REGEX, '-')
-    // Flatten all line breaks so typing flow stays continuous.
-    .replace(/\s*\n+\s*/g, ' ')
-    .replace(/[ \t]+/g, ' ')
-    .trim();
 }
 
 function findSafeBoundary(text, startOffset) {
@@ -65,7 +49,19 @@ function pickRandomBookEntry(index) {
   return index[randomInt(index.length)];
 }
 
+function isValidCorpusBookPath(pathValue) {
+  return typeof pathValue === 'string' && CORPUS_BOOK_PATH_REGEX.test(pathValue);
+}
+
+function sanitizeLoadedText(rawText) {
+  return String(rawText || '').trim();
+}
+
 async function fetchText(path) {
+  if (!isValidCorpusBookPath(path)) {
+    throw new Error(`Rejected unexpected corpus path: ${path}`);
+  }
+
   const response = await fetch(path);
 
   if (!response.ok) {
@@ -90,9 +86,12 @@ export async function loadCorpusIndex() {
           throw new Error('Corpus index is empty or invalid.');
         }
 
-        return index.filter(
-          (entry) => entry && typeof entry.path === 'string' && entry.path.length > 0
-        );
+        const validEntries = index.filter((entry) => entry && isValidCorpusBookPath(entry.path));
+        if (!validEntries.length) {
+          throw new Error('Corpus index contains no valid entries.');
+        }
+
+        return validEntries;
       });
   }
 
@@ -100,19 +99,19 @@ export async function loadCorpusIndex() {
 }
 
 export async function loadBookText(entry) {
-  if (!entry?.path) {
+  if (!entry?.path || !isValidCorpusBookPath(entry.path)) {
     throw new Error('Invalid corpus entry: missing path.');
   }
 
   if (!textCache.has(entry.path)) {
     const textPromise = fetchText(entry.path).then((rawText) => {
-      const normalized = normalizeBookText(rawText);
+      const text = sanitizeLoadedText(rawText);
 
-      if (normalized.length < 500) {
+      if (text.length < 500) {
         throw new Error(`Corpus book is too short: ${entry.path}`);
       }
 
-      return normalized;
+      return text;
     });
 
     textCache.set(entry.path, textPromise);
@@ -171,8 +170,7 @@ class CorpusSessionStream {
   }
 }
 
-export async function createCorpusSession(options = {}) {
-  const { initialChars = DEFAULT_INITIAL_BUFFER_CHARS } = options;
+async function createSessionPayload(initialChars = DEFAULT_INITIAL_BUFFER_CHARS) {
   const index = await loadCorpusIndex();
   const entry = pickRandomBookEntry(index);
   const text = await loadBookText(entry);
@@ -183,4 +181,55 @@ export async function createCorpusSession(options = {}) {
     stream,
     initialText: stream.createInitialBuffer(initialChars)
   };
+}
+
+export function preloadCorpusSession(options = {}) {
+  const { initialChars = DEFAULT_INITIAL_BUFFER_CHARS } = options;
+
+  if (!preloadedSessionPromise || preloadedSessionChars !== initialChars) {
+    preloadedSessionChars = initialChars;
+    preloadedSessionPromise = createSessionPayload(initialChars).catch((error) => {
+      preloadedSessionPromise = null;
+      throw error;
+    });
+  }
+
+  return preloadedSessionPromise;
+}
+
+function primeNextCorpusSession(initialChars = DEFAULT_INITIAL_BUFFER_CHARS) {
+  preloadedSessionChars = initialChars;
+  preloadedSessionPromise = createSessionPayload(initialChars).catch(() => {
+    preloadedSessionPromise = null;
+    return null;
+  });
+}
+
+export async function consumePreloadedCorpusSession(options = {}) {
+  const { initialChars = DEFAULT_INITIAL_BUFFER_CHARS } = options;
+  const usePreloaded = preloadedSessionPromise && preloadedSessionChars === initialChars;
+
+  const sessionPromise = usePreloaded
+    ? preloadedSessionPromise
+    : createSessionPayload(initialChars);
+
+  if (usePreloaded) {
+    preloadedSessionPromise = null;
+  }
+
+  let session = await sessionPromise;
+
+  if (!session?.stream || typeof session.initialText !== 'string') {
+    session = await createSessionPayload(initialChars);
+  }
+
+  // Keep the next session warm to make repeated starts feel immediate.
+  primeNextCorpusSession(initialChars);
+
+  return session;
+}
+
+export async function createCorpusSession(options = {}) {
+  const { initialChars = DEFAULT_INITIAL_BUFFER_CHARS } = options;
+  return createSessionPayload(initialChars);
 }

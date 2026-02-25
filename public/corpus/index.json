@@ -3,42 +3,42 @@
     "id": "arthur-conan-doyle-the-adventures-of-sherlock-holmes",
     "title": "arthur conan doyle the adventures of sherlock holmes",
     "path": "/corpus/books/arthur-conan-doyle-the-adventures-of-sherlock-holmes.txt",
-    "bytes": 567868
+    "bytes": 554083
   },
   {
     "id": "herman-melville-moby-dick",
     "title": "herman melville moby dick",
     "path": "/corpus/books/herman-melville-moby-dick.txt",
-    "bytes": 1193662
+    "bytes": 1176447
   },
   {
     "id": "jack-london-the-call-of-the-wild",
     "title": "jack london the call of the wild",
     "path": "/corpus/books/jack-london-the-call-of-the-wild.txt",
-    "bytes": 180495
+    "bytes": 178924
   },
   {
     "id": "jane-austen-pride-and-prejudice",
     "title": "jane austen pride and prejudice",
     "path": "/corpus/books/jane-austen-pride-and-prejudice.txt",
-    "bytes": 695479
+    "bytes": 684222
   },
   {
     "id": "marcus-aurelius-meditations-george-long",
     "title": "marcus aurelius meditations george long",
     "path": "/corpus/books/marcus-aurelius-meditations-george-long.txt",
-    "bytes": 250677
+    "bytes": 249679
   },
   {
     "id": "nathaniel-hawthorne-the-scarlet-letter",
     "title": "nathaniel hawthorne the scarlet letter",
     "path": "/corpus/books/nathaniel-hawthorne-the-scarlet-letter.txt",
-    "bytes": 491416
+    "bytes": 485233
   },
   {
     "id": "ralph-waldo-emerson-essays",
     "title": "ralph waldo emerson essays",
     "path": "/corpus/books/ralph-waldo-emerson-essays.txt",
-    "bytes": 734257
+    "bytes": 731318
   }
 ]
