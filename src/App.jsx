@@ -624,6 +624,28 @@ function App() {
   }, [screen, startSession]);
 
   useEffect(() => {
+    if (screen !== SCREEN.SUMMARY) {
+      return undefined;
+    }
+
+    function handleSummaryEnter(event) {
+      if (event.defaultPrevented || event.repeat) {
+        return;
+      }
+
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        startSession();
+      }
+    }
+
+    window.addEventListener('keydown', handleSummaryEnter);
+    return () => {
+      window.removeEventListener('keydown', handleSummaryEnter);
+    };
+  }, [screen, startSession]);
+
+  useEffect(() => {
     if (screen !== SCREEN.LANDING) {
       return undefined;
     }

@@ -651,12 +651,12 @@ button {
   padding-right: 4px;
   padding-bottom: 80px;
   box-sizing: border-box;
-  scrollbar-width: none;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
   scrollbar-color: transparent transparent;
 }
 
 .summary-scroll-area.scrolling {
-  scrollbar-width: thin;
   scrollbar-color: rgba(22, 39, 45, 0.26) transparent;
 }
 
