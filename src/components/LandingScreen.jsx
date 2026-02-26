@@ -8,8 +8,8 @@ function LandingScreen({ onStartSession, isPreparing }) {
           <h1 className="primary-heading">A calm place to practice typing</h1>
 
           <p className="body-copy">
-            Practice typing in a quiet, distraction-free space. The text continues endlessly,
-            gentle music begins when you start typing, and you can move at your own pace.
+            AmbiType is a chill space to practice typing with an endless flow of text and
+            optional ambient music designed to keep you focused and in the flow.
           </p>
         </div>
 
