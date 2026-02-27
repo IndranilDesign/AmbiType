@@ -23,6 +23,7 @@ const SCREEN = {
 };
 
 const MUTE_STORAGE_KEY = 'ambitype-muted';
+const THEME_STORAGE_KEY = 'ambitype-theme';
 const SHORT_SESSION_SKIP_SUMMARY_SECONDS = 10;
 const INITIAL_TEXT_LENGTH = 24000;
 const BUFFER_AHEAD_CHARS = 1700;
@@ -90,6 +91,31 @@ function getStoredMutePreference() {
   }
 }
 
+function getStoredThemePreference() {
+  try {
+    const storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+    if (storedTheme === 'light' || storedTheme === 'dark') {
+      return storedTheme;
+    }
+  } catch (error) {
+    // Ignore storage failures in restricted contexts.
+  }
+
+  return null;
+}
+
+function getSystemThemePreference() {
+  if (typeof window === 'undefined' || !window.matchMedia) {
+    return 'light';
+  }
+
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function getInitialThemePreference() {
+  return getStoredThemePreference() || getSystemThemePreference();
+}
+
 function createFallbackText(minLength = INITIAL_TEXT_LENGTH) {
   let text = `${FALLBACK_CORPUS_NOTICE} `;
 
@@ -106,6 +132,10 @@ function App() {
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [isEmailCopied, setIsEmailCopied] = useState(false);
   const [isMuted, setIsMuted] = useState(getStoredMutePreference);
+  const [theme, setTheme] = useState(getInitialThemePreference);
+  const [hasThemeOverride, setHasThemeOverride] = useState(
+    () => Boolean(getStoredThemePreference())
+  );
   const [audioBlocked, setAudioBlocked] = useState(false);
   const [playlist, setPlaylist] = useState(() => shuffleArray(TRACK_PATHS));
   const [trackIndex, setTrackIndex] = useState(0);
@@ -170,6 +200,41 @@ function App() {
       // Ignore storage failures in restricted contexts.
     }
   }, [isMuted]);
+
+  useEffect(() => {
+    if (!hasThemeOverride) {
+      return;
+    }
+
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch (error) {
+      // Ignore storage failures in restricted contexts.
+    }
+  }, [hasThemeOverride, theme]);
+
+  useEffect(() => {
+    if (hasThemeOverride || typeof window === 'undefined' || !window.matchMedia) {
+      return undefined;
+    }
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleThemeChange = (event) => {
+      setTheme(event.matches ? 'dark' : 'light');
+    };
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', handleThemeChange);
+      return () => {
+        mediaQuery.removeEventListener('change', handleThemeChange);
+      };
+    }
+
+    mediaQuery.addListener(handleThemeChange);
+    return () => {
+      mediaQuery.removeListener(handleThemeChange);
+    };
+  }, [hasThemeOverride]);
 
   useEffect(() => {
     if (!isInfoOpen) {
@@ -742,6 +807,11 @@ function App() {
     });
   }
 
+  function handleToggleTheme() {
+    setHasThemeOverride(true);
+    setTheme((previousTheme) => (previousTheme === 'dark' ? 'light' : 'dark'));
+  }
+
   function handleOpenLinkedIn() {
     window.open(LINKEDIN_URL, '_blank', 'noopener,noreferrer');
   }
@@ -773,58 +843,73 @@ function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${theme === 'dark' ? 'theme-dark' : 'theme-light'}`}>
       <audio ref={audioRef} preload="none" onEnded={handleTrackEnded} />
 
-      <div className="info-popover-wrap" ref={infoPopoverRef}>
+      <div className="top-controls">
         <button
           type="button"
-          className="info-button"
-          onClick={() => setIsInfoOpen((previousState) => !previousState)}
-          aria-label="Project information"
-          aria-expanded={isInfoOpen}
+          className="top-action-button theme-toggle-button"
+          onClick={handleToggleTheme}
+          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
         >
-          <img src="/icons/Info.svg" alt="" aria-hidden="true" />
+          <img
+            src={theme === 'dark' ? '/icons/Dark_mode.svg' : '/icons/Light_mode.svg'}
+            alt=""
+            aria-hidden="true"
+          />
         </button>
 
-        <aside
-          className={`info-popover${isInfoOpen ? ' open' : ''}`}
-          role="dialog"
-          aria-label="About AmbiType"
-          aria-hidden={!isInfoOpen}
-        >
-          <p className="info-popover-copy">
-            Hey! I&apos;m Indranil, a product designer. I decided to build AmbiType because I wanted a
-            calm, endless typing space that felt nice to use. After a few late-night work sessions and
-            a concerning amount of coffee, it was finally done!
-            <br />
-            If you find any bugs, have thoughts, or just want to say hi, DM me on LinkedIn or shoot
-            me an email 😊
-          </p>
+        <div className="info-popover-wrap" ref={infoPopoverRef}>
+          <button
+            type="button"
+            className="top-action-button info-button"
+            onClick={() => setIsInfoOpen((previousState) => !previousState)}
+            aria-label="Project information"
+            aria-expanded={isInfoOpen}
+          >
+            <img src="/icons/infor.svg" alt="" aria-hidden="true" />
+          </button>
 
-          <div className="info-popover-actions">
-            <button type="button" className="info-action-button" onClick={handleOpenLinkedIn}>
-              <img src="/icons/LinkedIn.svg" alt="" aria-hidden="true" />
-              <span>LinkedIn</span>
-            </button>
+          <aside
+            className={`info-popover${isInfoOpen ? ' open' : ''}`}
+            role="dialog"
+            aria-label="About AmbiType"
+            aria-hidden={!isInfoOpen}
+          >
+            <p className="info-popover-copy">
+              Hey! I&apos;m Indranil, a product designer. I decided to build AmbiType because I wanted a
+              calm, endless typing space that felt nice to use. After a few late-night work sessions and
+              a concerning amount of coffee, it was finally done!
+              <br />
+              If you find any bugs, have thoughts, or just want to say hi, DM me on LinkedIn or shoot
+              me an email 😊
+            </p>
 
-            <button
-              type="button"
-              className={`info-action-button copy-email-button${isEmailCopied ? ' copied' : ''}`}
-              onClick={handleCopyEmail}
-              aria-label={isEmailCopied ? 'Copied' : 'Copy email'}
-            >
-              <span className="copy-state copy-default" aria-hidden={isEmailCopied}>
-                <img src="/icons/Copy.svg" alt="" aria-hidden="true" />
-                <span>Copy email</span>
-              </span>
-              <span className="copy-state copy-success" aria-hidden={!isEmailCopied}>
-                <img src="/icons/Check.svg" alt="" aria-hidden="true" />
-                <span>Copied</span>
-              </span>
-            </button>
-          </div>
-        </aside>
+            <div className="info-popover-actions">
+              <button type="button" className="info-action-button" onClick={handleOpenLinkedIn}>
+                <img src="/icons/LinkedIn.svg" alt="" aria-hidden="true" />
+                <span>LinkedIn</span>
+              </button>
+
+              <button
+                type="button"
+                className={`info-action-button copy-email-button${isEmailCopied ? ' copied' : ''}`}
+                onClick={handleCopyEmail}
+                aria-label={isEmailCopied ? 'Copied' : 'Copy email'}
+              >
+                <span className="copy-state copy-default" aria-hidden={isEmailCopied}>
+                  <img src="/icons/Copy.svg" alt="" aria-hidden="true" />
+                  <span>Copy email</span>
+                </span>
+                <span className="copy-state copy-success" aria-hidden={!isEmailCopied}>
+                  <img src="/icons/Check.svg" alt="" aria-hidden="true" />
+                  <span>Copied</span>
+                </span>
+              </button>
+            </div>
+          </aside>
+        </div>
       </div>
 
       <main

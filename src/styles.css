@@ -37,16 +37,37 @@ button {
   background: linear-gradient(180deg, #e9ecef 0%, #98afc7 53%, #305282 100%);
   padding: 40px;
   overflow: hidden;
+  transition: background-color 280ms ease;
 }
 
-.info-popover-wrap {
+.app-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #000000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 280ms ease;
+  z-index: 0;
+}
+
+.app-shell > * {
+  position: relative;
+  z-index: 1;
+}
+
+.top-controls {
   position: absolute;
   top: 40px;
   right: 40px;
   z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
 }
 
-.info-button {
+.top-action-button {
   width: 48px;
   height: 48px;
   border: none;
@@ -56,6 +77,22 @@ button {
   place-items: center;
   cursor: pointer;
   backdrop-filter: blur(1px);
+  transition: background-color 260ms ease, filter 260ms ease;
+}
+
+.top-action-button img {
+  width: 24px;
+  height: 24px;
+  transition: filter 260ms ease;
+}
+
+.theme-light .theme-toggle-button img {
+  filter: brightness(0) saturate(100%);
+}
+
+.info-popover-wrap {
+  position: relative;
+  z-index: 20;
 }
 
 .info-button img {
@@ -68,7 +105,7 @@ button {
   top: 60px;
   right: 0;
   width: min(84vw, 320px);
-  background: #1c1e1f;
+  background: #17191A;
   color: rgba(255, 255, 255, 0.95);
   border-radius: 22px;
   padding: 16px;
@@ -183,7 +220,11 @@ button {
   padding: 40px;
   overflow: hidden;
   animation: fade-in 320ms ease;
-  transition: width 320ms ease, padding 320ms ease;
+  transition:
+    width 320ms ease,
+    padding 320ms ease,
+    background-color 260ms ease,
+    color 260ms ease;
 }
 
 .mobile-unavailable {
@@ -239,6 +280,7 @@ button {
   line-height: 1.05;
   color: #16272d;
   font-weight: 400;
+  transition: color 260ms ease;
 }
 
 .body-copy {
@@ -248,6 +290,7 @@ button {
   font-size: 16px;
   font-weight: 500;
   line-height: 1.55;
+  transition: color 260ms ease;
 }
 
 .screen-footer {
@@ -285,11 +328,13 @@ button {
   color: rgba(22, 39, 45, 0.55);
   font-size: 16px;
   font-weight: 500;
+  transition: color 260ms ease;
 }
 
 .music-start-hint img {
   width: 20px;
   height: 20px;
+  transition: opacity 260ms ease, filter 260ms ease;
 }
 
 .primary-cta {
@@ -307,7 +352,7 @@ button {
   gap: 8px;
   cursor: pointer;
   text-align: center;
-  transition: filter 180ms ease;
+  transition: filter 180ms ease, background-color 260ms ease;
 }
 
 .primary-cta:hover {
@@ -375,11 +420,12 @@ button {
   word-break: break-word;
   overflow-wrap: anywhere;
   user-select: none;
-  transition: transform 160ms ease-out;
+  transition: transform 160ms ease-out, color 260ms ease;
 }
 
 .glyph {
   color: #16272d;
+  transition: color 260ms ease, text-decoration-color 260ms ease;
 }
 
 .glyph-correct {
@@ -406,6 +452,7 @@ button {
   height: 170px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0) 32%, #ffffff 92%);
   pointer-events: none;
+  transition: background 260ms ease;
 }
 
 .typing-top-fade-overlay {
@@ -417,7 +464,7 @@ button {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0) 85%);
   pointer-events: none;
   opacity: 0;
-  transition: opacity 180ms ease;
+  transition: opacity 180ms ease, background 260ms ease;
 }
 
 .typing-top-fade-overlay.active {
@@ -434,7 +481,11 @@ button {
   pointer-events: none;
   transform: translate(0, 0);
   opacity: 0;
-  transition: transform 140ms ease-out, width 140ms ease-out, opacity 120ms ease;
+  transition:
+    transform 140ms ease-out,
+    width 140ms ease-out,
+    opacity 120ms ease,
+    background-color 260ms ease;
   z-index: 2;
 }
 
@@ -457,6 +508,7 @@ button {
   display: flex;
   align-items: center;
   gap: 8px;
+  transition: background-color 260ms ease, border-color 260ms ease;
 }
 
 .control-time {
@@ -620,6 +672,7 @@ button {
   align-items: center;
   justify-content: center;
   text-align: center;
+  transition: background-color 260ms ease;
 }
 
 .stat-value {
@@ -628,6 +681,7 @@ button {
   font-size: 32px;
   line-height: 1;
   font-weight: 600;
+  transition: color 260ms ease;
 }
 
 .stat-label {
@@ -636,6 +690,7 @@ button {
   font-size: 16px;
   line-height: 1.2;
   font-weight: 500;
+  transition: color 260ms ease;
 }
 
 .summary-screen {
@@ -689,6 +744,7 @@ button {
   bottom: 0;
   background: #ffffff;
   z-index: 2;
+  transition: background-color 260ms ease;
 }
 
 .summary-footer::before {
@@ -700,6 +756,111 @@ button {
   height: 88px;
   pointer-events: none;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, #ffffff 82%);
+  transition: background 260ms ease;
+}
+
+.theme-dark::before {
+  opacity: 0.2;
+}
+
+.theme-dark .top-action-button {
+  background: #1c1e1f;
+}
+
+.theme-dark .top-action-button img {
+  filter: brightness(0) saturate(100%) invert(1);
+}
+
+.theme-dark .info-button img {
+  filter: brightness(0) saturate(100%) invert(1);
+}
+
+.theme-dark .app-card {
+  background: #1c1e1f;
+}
+
+.theme-dark .primary-heading {
+  color: #ffffff;
+}
+
+.theme-dark .body-copy {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.theme-dark .music-start-hint {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.theme-dark .music-start-hint img {
+  opacity: 0.6;
+  filter: brightness(0) saturate(100%) invert(1);
+}
+
+.theme-dark .primary-cta {
+  background: #386fde;
+}
+
+.theme-dark .typing-text-flow,
+.theme-dark .glyph,
+.theme-dark .glyph-pending {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.theme-dark .glyph-correct {
+  color: #77a77b;
+}
+
+.theme-dark .glyph-incorrect {
+  color: #e26868;
+}
+
+.theme-dark .glyph-current {
+  color: #568bf8;
+}
+
+.theme-dark .typing-caret {
+  background: rgba(86, 139, 248, 0.9);
+}
+
+.theme-dark .typing-fade-overlay {
+  background: linear-gradient(180deg, rgba(28, 30, 31, 0) 32%, #1c1e1f 92%);
+}
+
+.theme-dark .typing-top-fade-overlay {
+  background: linear-gradient(180deg, rgba(28, 30, 31, 0.55) 0%, rgba(28, 30, 31, 0) 85%);
+}
+
+.theme-dark .control-bar {
+  background: #121212;
+  border-color: #121212;
+}
+
+.theme-dark .stat-card {
+  background: #222526;
+}
+
+.theme-dark .stat-value {
+  color: #ffffff;
+}
+
+.theme-dark .stat-label {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.theme-dark .summary-scroll-area.scrolling {
+  scrollbar-color: rgba(255, 255, 255, 0.24) transparent;
+}
+
+.theme-dark .summary-scroll-area.scrolling::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.theme-dark .summary-footer {
+  background: #1c1e1f;
+}
+
+.theme-dark .summary-footer::before {
+  background: linear-gradient(180deg, rgba(28, 30, 31, 0) 0%, #1c1e1f 82%);
 }
 
 @keyframes fade-in {
@@ -744,7 +905,11 @@ button {
     background: #ffffff;
   }
 
-  .info-popover-wrap,
+  .app-shell::before {
+    display: none;
+  }
+
+  .top-controls,
   .app-card {
     display: none;
   }
@@ -790,22 +955,6 @@ button {
   .typing-card {
     padding: 32px 12px;
   }
-
-  .info-popover-wrap {
-    top: 40px;
-    right: 40px;
-  }
-
-  .info-button {
-    width: 48px;
-    height: 48px;
-  }
-
-  .info-button img {
-    width: 24px;
-    height: 24px;
-  }
-
   .primary-heading {
     font-size: 32px;
   }
