@@ -16,7 +16,7 @@ function LandingScreen({ onStartSession, isPreparing }) {
         <footer className="screen-footer landing-footer">
           <p className="music-start-hint">
             <img src="/icons/Music.svg" alt="" aria-hidden="true" />
-            Music will start when you start session
+            Ambient music can be turned on during your session
           </p>
 
           <button

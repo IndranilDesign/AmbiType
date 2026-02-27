@@ -72,9 +72,21 @@ function shuffleArray(items) {
 
 function getStoredMutePreference() {
   try {
-    return localStorage.getItem(MUTE_STORAGE_KEY) === 'true';
+    const storedValue = localStorage.getItem(MUTE_STORAGE_KEY);
+
+    if (storedValue === 'true') {
+      return true;
+    }
+
+    if (storedValue === 'false') {
+      return false;
+    }
+
+    // First-time visitors start muted by default.
+    return true;
   } catch (error) {
-    return false;
+    // In restricted contexts, default to muted for safe first-run behavior.
+    return true;
   }
 }
 
