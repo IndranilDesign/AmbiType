@@ -68,7 +68,7 @@ button {
   top: 60px;
   right: 0;
   width: min(84vw, 320px);
-  background: linear-gradient(135deg, #0f2a33 0%, #102f36 100%);
+  background: #1c1e1f;
   color: rgba(255, 255, 255, 0.95);
   border-radius: 22px;
   padding: 16px;
@@ -98,6 +98,7 @@ button {
 
 .info-popover-copy {
   margin: 0;
+  color: rgba(255, 255, 255, 0.8);
   font-size: 14px;
   line-height: 1.58;
 }
