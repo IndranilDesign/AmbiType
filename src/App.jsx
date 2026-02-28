@@ -34,21 +34,23 @@ const FALLBACK_CORPUS_NOTICE =
   'Corpus unavailable. Run npm run corpus:build to generate local typing text files.';
 
 const TRACK_PATHS = [
+  '/Tracks/ES_Alleviated Mind - Hanna Lindgren.mp3',
+  '/Tracks/ES_Arc of Transcendence - Lama House.mp3',
   '/Tracks/ES_Atomic Chant - Joseph Beg.mp3',
+  '/Tracks/ES_Birdsong by the River - Center of Attention.mp3',
+  '/Tracks/ES_Capitola Sunset - Alan Ellis.mp3',
+  '/Tracks/ES_Forest Canopy - 369.mp3',
   '/Tracks/ES_Holding on to Hope - Megan Wofford.mp3',
   '/Tracks/ES_Imagine Sleep - Hanna Lindgren.mp3',
+  '/Tracks/ES_Lost in Thought - Amaranth Cove.mp3',
+  '/Tracks/ES_Sacred Space 432 - 369.mp3',
   '/Tracks/ES_Sitting on the Moon - Rebecca Mardal.mp3',
   '/Tracks/ES_Snow Lantern - Syntropy.mp3',
+  '/Tracks/ES_Sydkoster - Elm Lake.mp3',
+  '/Tracks/ES_The Calm Outside - Chill Cole.mp3',
   '/Tracks/ES_Tranquillity Coast - Rebecca Mardal.mp3',
   '/Tracks/ES_The Sun Might Rise in the West - Jakob Ahlbom.mp3',
-  '/Tracks/ES_Lost in Thought - Amaranth Cove.mp3',
-  '/Tracks/ES_Days of Ducklings - Rand Aldo.mp3',
-  '/Tracks/ES_Alleviated Mind - Hanna Lindgren.mp3',
-  '/Tracks/ES_The Calm Outside - Chill Cole.mp3',
-  '/Tracks/ES_Zema - Martin Landh.mp3',
-  '/Tracks/ES_Underscore - Hampus Naeselius.mp3',
-  "/Tracks/ES_Furthest I've Been from Home - Rebecca Mardal.mp3",
-  '/Tracks/ES_Sydkoster - Elm Lake.mp3'
+  '/Tracks/ES_Underscore - Hampus Naeselius.mp3'
 ].map((track) => encodeURI(track));
 
 const EMPTY_SUMMARY = {
