@@ -423,6 +423,10 @@ button {
   transition: transform 160ms ease-out, color 260ms ease;
 }
 
+.typing-prefix-spacer {
+  visibility: hidden;
+}
+
 .glyph {
   color: #16272d;
   transition: color 260ms ease, text-decoration-color 260ms ease;

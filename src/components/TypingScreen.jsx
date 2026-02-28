@@ -1,6 +1,32 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import ControlBar from './ControlBar';
 
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function isWhitespace(character) {
+  return /\s/.test(character);
+}
+
+function findForwardBoundary(text, startIndex) {
+  if (!text) {
+    return 0;
+  }
+
+  let index = clamp(startIndex, 0, text.length);
+
+  while (index < text.length && !isWhitespace(text[index])) {
+    index += 1;
+  }
+
+  while (index < text.length && isWhitespace(text[index])) {
+    index += 1;
+  }
+
+  return clamp(index, 0, text.length);
+}
+
 function TypingScreen({
   targetText,
   cursorIndex,
@@ -17,26 +43,56 @@ function TypingScreen({
   const CARET_ANCHOR_RATIO = 0.33;
   const RENDER_BEFORE_CHARS = 1400;
   const RENDER_AFTER_CHARS = 2600;
+  const WINDOW_SHIFT_STEP = 160;
+  const MIN_RENDER_WINDOW_CHARS = RENDER_BEFORE_CHARS + RENDER_AFTER_CHARS + WINDOW_SHIFT_STEP;
+
   const [scrollOffset, setScrollOffset] = useState(0);
+
   const typingViewportRef = useRef(null);
   const typingTargetRef = useRef(null);
+  const textFlowRef = useRef(null);
   const currentCharacterRef = useRef(null);
   const caretRef = useRef(null);
 
-  const { visibleText, windowStart } = useMemo(() => {
+  const windowStartIndex = useMemo(() => {
     if (!targetText) {
-      return { visibleText: '', windowStart: 0 };
+      return 0;
     }
 
-    const safeCursor = Math.max(0, Math.min(cursorIndex, targetText.length));
-    const start = Math.max(0, safeCursor - RENDER_BEFORE_CHARS);
-    const end = Math.min(targetText.length, safeCursor + RENDER_AFTER_CHARS);
+    const safeCursor = clamp(cursorIndex, 0, targetText.length);
+    if (safeCursor <= RENDER_BEFORE_CHARS) {
+      return 0;
+    }
 
-    return {
-      visibleText: targetText.slice(start, end),
-      windowStart: start
-    };
+    const desiredStart = safeCursor - RENDER_BEFORE_CHARS;
+    const steppedStart = Math.floor(desiredStart / WINDOW_SHIFT_STEP) * WINDOW_SHIFT_STEP;
+    const boundaryStart = findForwardBoundary(targetText, steppedStart);
+
+    return clamp(boundaryStart, 0, safeCursor);
   }, [cursorIndex, targetText]);
+
+  const prefixText = useMemo(() => {
+    if (!targetText || windowStartIndex <= 0) {
+      return '';
+    }
+
+    // Invisible prefix keeps line-wrapping continuity when the render window shifts.
+    return targetText.slice(0, windowStartIndex);
+  }, [targetText, windowStartIndex]);
+
+  const visibleText = useMemo(() => {
+    if (!targetText) {
+      return '';
+    }
+
+    const safeCursor = clamp(cursorIndex, 0, targetText.length);
+    const end = Math.min(
+      targetText.length,
+      Math.max(safeCursor + RENDER_AFTER_CHARS, windowStartIndex + MIN_RENDER_WINDOW_CHARS)
+    );
+
+    return targetText.slice(windowStartIndex, end);
+  }, [cursorIndex, targetText, windowStartIndex]);
 
   const visibleCharacters = useMemo(() => visibleText.split(''), [visibleText]);
 
@@ -45,12 +101,14 @@ function TypingScreen({
   }, []);
 
   useEffect(() => {
-    function handleGlobalShortcut(event) {
-      if (event.defaultPrevented) {
-        return;
-      }
+    if (cursorIndex === 0) {
+      setScrollOffset(0);
+    }
+  }, [cursorIndex]);
 
-      if (event.repeat) {
+  useEffect(() => {
+    function handleGlobalShortcut(event) {
+      if (event.defaultPrevented || event.repeat) {
         return;
       }
 
@@ -75,10 +133,11 @@ function TypingScreen({
 
   useLayoutEffect(() => {
     const viewport = typingViewportRef.current;
+    const textFlow = textFlowRef.current;
     const currentCharacter = currentCharacterRef.current;
     const caret = caretRef.current;
 
-    if (!viewport || !currentCharacter || !caret) {
+    if (!viewport || !textFlow || !currentCharacter || !caret) {
       if (caret) {
         caret.style.opacity = '0';
       }
@@ -87,9 +146,8 @@ function TypingScreen({
 
     const viewportAnchor = viewport.clientHeight * CARET_ANCHOR_RATIO;
     const nextOffset = Math.max(0, currentCharacter.offsetTop - viewportAnchor);
-    const textFlow = currentCharacter.parentElement;
-    const flowLeft = textFlow?.offsetLeft || 0;
-    const flowTop = textFlow?.offsetTop || 0;
+    const flowLeft = textFlow.offsetLeft || 0;
+    const flowTop = textFlow.offsetTop || 0;
     const caretX = flowLeft + currentCharacter.offsetLeft;
     const caretY =
       flowTop + currentCharacter.offsetTop - nextOffset + currentCharacter.offsetHeight;
@@ -106,7 +164,7 @@ function TypingScreen({
     caret.style.width = `${Math.round(caretWidth)}px`;
     caret.style.transform = `translate(${Math.round(caretX)}px, ${Math.round(caretY)}px)`;
     caret.style.opacity = '1';
-  }, [cursorIndex, visibleText]);
+  }, [cursorIndex, visibleText, windowStartIndex]);
 
   function handleKeyDown(event) {
     if (event.ctrlKey || event.metaKey || event.altKey) {
@@ -159,11 +217,18 @@ function TypingScreen({
         >
           <p
             className="typing-text-flow"
+            ref={textFlowRef}
             style={{ transform: `translateY(-${scrollOffset}px)` }}
             aria-hidden="true"
           >
+            {prefixText ? (
+              <span className="typing-prefix-spacer" aria-hidden="true">
+                {prefixText}
+              </span>
+            ) : null}
+
             {visibleCharacters.map((character, index) => {
-              const absoluteIndex = windowStart + index;
+              const absoluteIndex = windowStartIndex + index;
               let className = 'glyph glyph-pending';
 
               if (absoluteIndex < cursorIndex) {
